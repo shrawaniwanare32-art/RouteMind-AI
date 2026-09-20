@@ -1,5 +1,11 @@
 # 🚚 RouteMind AI — Predictive Delivery Disruption \& Recovery System
-
+**Docker images:** [routemind-api](https://hub.docker.com/r/shrawaniwanare/routemind-api) | [routemind-dashboard](https://hub.docker.com/r/shrawaniwanare/routemind-dashboard)
+[![CI](https://github.com/shrawaniwanare32-art/RouteMind-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/shrawaniwanare32-art/RouteMind-AI/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.11-blue?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![scikit-learn](https://img.shields.io/badge/scikit--learn-F7931E?logo=scikitlearn&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?logo=streamlit&logoColor=white)
+[![Docker](https://img.shields.io/badge/Docker%20Hub-shrawaniwanare-2496ED?logo=docker&logoColor=white)](https://hub.docker.com/r/shrawaniwanare/routemind-api)
 Predicts **whether a delivery will be late before it happens**, estimates **how late**, explains **why**, and recommends a **recovery action** — packaged as a full MLOps project (pipelines, API, dashboard, Docker, CI/CD, AWS + Azure, monitoring, retraining).
 
 ```
@@ -84,6 +90,6 @@ Or everything in containers: `docker compose up --build` (API :8000, dashboard :
 No public dataset combines GPS, traffic, weather and delay, so `src/components/data\_generator.py` **simulates** deliveries with realistic cause-and-effect rules. The metrics you see (\~84 % accuracy, \~2.4 min MAE) describe *how well the model learned the simulator*, not real-world performance. To use real data, drop a CSV with the same columns at `data/raw/deliveries.csv` — nothing else changes.
 
 
-**Docker images:** [routemind-api](https://hub.docker.com/r/shrawaniwanare/routemind-api) � [routemind-dashboard](https://hub.docker.com/r/shrawaniwanare/routemind-dashboard)
+**Docker images:** [routemind-api](https://hub.docker.com/r/shrawaniwanare/routemind-api) � [routemind-dashboard](https://hub.docker.com/r/shrawaniwanare/routemind-dashboard)
 
 Run it with one command: `docker run -p 8000:8000 shrawaniwanare/routemind-api:latest`
