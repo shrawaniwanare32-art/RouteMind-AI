@@ -1,0 +1,110 @@
+name: CD
+
+# Runs after CI succeeds on main (or manually). Each cloud is switched on with a
+# repository VARIABLE:  DEPLOY_AWS=true  and/or  DEPLOY_AZURE=true
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy-aws:
+    name: Deploy to AWS (ECR + ECS Fargate)
+    if: >
+      vars.DEPLOY_AWS == 'true' &&
+      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      ECR_REPOSITORY: routemind-api
+      ECS_CLUSTER: routemind-cluster
+      ECS_SERVICE: routemind-api-service
+      CONTAINER_NAME: routemind-api
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        id: build
+        env:
+          IMAGE: ${{ steps.ecr.outputs.registry }}/routemind-api:${{ github.sha }}
+        run: |
+          docker build -f docker/Dockerfile.api -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+      - id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: deployment/aws/task-definition.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.build.outputs.image }}
+
+      - uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+
+      - name: Health check
+        run: |
+          TASK=$(aws ecs list-tasks --cluster "$ECS_CLUSTER" --service-name "$ECS_SERVICE" \
+                   --query 'taskArns[0]' --output text)
+          ENI=$(aws ecs describe-tasks --cluster "$ECS_CLUSTER" --tasks "$TASK" \
+                   --query "tasks[0].attachments[0].details[?name=='networkInterfaceId'].value" --output text)
+          IP=$(aws ec2 describe-network-interfaces --network-interface-ids "$ENI" \
+                   --query 'NetworkInterfaces[0].Association.PublicIp' --output text)
+          echo "Checking http://$IP:8000/health"
+          curl --retry 12 --retry-delay 10 --retry-connrefused -fs "http://$IP:8000/health"
+
+  deploy-azure:
+    name: Deploy to Azure (ACR + Container Apps)
+    if: >
+      vars.DEPLOY_AZURE == 'true' &&
+      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    env:
+      APP_NAME: routemind-api
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Build image in Azure Container Registry
+        run: |
+          az acr build --registry "${{ vars.ACR_NAME }}" \
+            --image "routemind-api:${{ github.sha }}" \
+            --file docker/Dockerfile.api .
+
+      - name: Roll out new revision to Container Apps
+        run: |
+          az config set extension.use_dynamic_install=yes_without_prompt
+          az containerapp update \
+            --name "$APP_NAME" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --image "${{ vars.ACR_NAME }}.azurecr.io/routemind-api:${{ github.sha }}"
+
+      - name: Health check
+        run: |
+          FQDN=$(az containerapp show --name "$APP_NAME" \
+                   --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+                   --query properties.configuration.ingress.fqdn -o tsv)
+          echo "Checking https://$FQDN/health"
+          curl --retry 12 --retry-delay 10 --retry-connrefused -fs "https://$FQDN/health"

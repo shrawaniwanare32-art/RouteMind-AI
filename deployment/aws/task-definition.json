@@ -1,0 +1,32 @@
+{
+  "family": "routemind-api",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::REPLACE_ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "routemind-api",
+      "image": "REPLACE_ACCOUNT_ID.dkr.ecr.REPLACE_REGION.amazonaws.com/routemind-api:latest",
+      "essential": true,
+      "portMappings": [{ "containerPort": 8000, "protocol": "tcp" }],
+      "environment": [{ "name": "ROUTEMIND_AUTO_TRAIN", "value": "true" }],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -fs http://localhost:8000/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 30
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/routemind-api",
+          "awslogs-region": "REPLACE_REGION",
+          "awslogs-stream-prefix": "api"
+        }
+      }
+    }
+  ]
+}
