@@ -83,3 +83,7 @@ Or everything in containers: `docker compose up --build` (API :8000, dashboard :
 
 No public dataset combines GPS, traffic, weather and delay, so `src/components/data\_generator.py` **simulates** deliveries with realistic cause-and-effect rules. The metrics you see (\~84 % accuracy, \~2.4 min MAE) describe *how well the model learned the simulator*, not real-world performance. To use real data, drop a CSV with the same columns at `data/raw/deliveries.csv` â€” nothing else changes.
 
+
+**Docker images:** [routemind-api](https://hub.docker.com/r/shrawaniwanare/routemind-api) · [routemind-dashboard](https://hub.docker.com/r/shrawaniwanare/routemind-dashboard)
+
+Run it with one command: `docker run -p 8000:8000 shrawaniwanare/routemind-api:latest`
